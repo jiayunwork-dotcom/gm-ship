@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>gm-ship · 小倾角初稳性核算</title>
+<style>
+  :root { --bg:#0f1720; --panel:#16212c; --ink:#e7eef5; --muted:#9fb3c8; --accent:#4fd1c5; --bad:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:18px 22px; border-bottom:1px solid #233140; }
+  h1 { margin:0; font-size:18px; }
+  main { display:grid; grid-template-columns: 320px 1fr; gap:18px; padding:18px 22px; }
+  .card { background:var(--panel); border:1px solid #233140; border-radius:10px; padding:16px; }
+  label { display:block; margin:8px 0 3px; color:var(--muted); font-size:12px; }
+  input { width:100%; padding:7px 9px; background:#0c151d; border:1px solid #2b3a4a; color:var(--ink); border-radius:6px; }
+  .row { display:flex; gap:8px; }
+  .row > div { flex:1; }
+  button { margin-top:12px; padding:9px 12px; border:0; border-radius:7px; background:var(--accent); color:#06241f; font-weight:600; cursor:pointer; }
+  button.ghost { background:#22323f; color:var(--ink); }
+  table { width:100%; border-collapse:collapse; margin-top:6px; }
+  td, th { text-align:left; padding:6px 8px; border-bottom:1px solid #233140; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .err { color:var(--bad); background:#2a1416; border:1px solid #5a2226; border-radius:7px; padding:10px 12px; margin-top:12px; white-space:pre-wrap; }
+  .note { color:var(--muted); font-size:12px; margin-top:10px; }
+  svg { width:100%; height:300px; background:#0c151d; border:1px solid #2b3a4a; border-radius:8px; }
+  .legend { color:var(--muted); font-size:12px; margin-top:6px; }
+</style>
+</head>
+<body>
+<header><h1>gm-ship · 船舶小倾角初稳性核算</h1></header>
+<main>
+  <section class="card">
+    <div class="row">
+      <button id="load">加载示例 barge.json</button>
+      <button id="reset" class="ghost">清空</button>
+    </div>
+    <label>排水体积 ∇ (m³)</label><input id="volume" type="number" step="any" value="1200">
+    <label>浮心竖向 KB (m)</label><input id="kb" type="number" step="any" value="1.25">
+    <label>重心竖向 KG (m)</label><input id="kg" type="number" step="any" value="1.5">
+    <label>水线面横向惯性矩 IT (m⁴)</label><input id="it" type="number" step="any" value="5760">
+    <label>横倾角 φ (°)</label><input id="phi" type="number" step="any" value="5">
+    <label>水密度 ρ (kg/m³，可空=海水1025)</label><input id="rho" type="number" step="any" value="1025">
+    <label>自由液面惯性 i (m⁴，可空=0)</label><input id="fs" type="number" step="any" value="0">
+    <div class="row">
+      <button id="calc">计算 GM / GZ</button>
+      <button id="plot" class="ghost">绘制 GZ–φ</button>
+    </div>
+    <div id="error" class="err" style="display:none"></div>
+    <div class="note">所有计算由后端 /api/gm 与 /api/scan 完成，SVG 曲线点列来自后端返回。</div>
+  </section>
+
+  <section class="card">
+    <h3 style="margin-top:0">核算结果（/api/gm）</h3>
+    <table id="result"><tbody>
+      <tr><th>BM (m)</th><td class="num" id="r_bm">—</td></tr>
+      <tr><th>GM (m)</th><td class="num" id="r_gm">—</td></tr>
+      <tr><th>GM_free (m)</th><td class="num" id="r_gmf">—</td></tr>
+      <tr><th>GZ (m)</th><td class="num" id="r_gz">—</td></tr>
+      <tr><th>回复力矩 (N)</th><td class="num" id="r_mom">—</td></tr>
+    </tbody></table>
+    <div id="warn" class="note"></div>
+
+    <h3>GZ–φ 曲线（/api/scan，点列来自后端）</h3>
+    <svg id="chart" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="legend">横轴：横倾角 φ (°)；纵轴：复原力臂 GZ (m)。曲线为后端返回点列连线，非浏览器写死。</div>
+  </section>
+</main>
+
+<script>
+function field(id){ return document.getElementById(id); }
+function showError(msg){ const e=field('error'); e.style.display='block'; e.textContent='后端返回错误：\n'+msg; }
+function clearError(){ field('error').style.display='none'; }
+
+async function loadExample(){
+  clearError();
+  try{
+    const r = await fetch('example/barge.json');
+    if(!r.ok){ throw new Error('无法读取 example/barge.json (HTTP '+r.status+')'); }
+    const d = await r.json();
+    field('volume').value = d.volume;
+    field('kb').value = d.kb;
+    field('kg').value = d.kg;
+    field('it').value = d.it;
+    field('rho').value = d.rho;
+  }catch(err){ showError(err.message); }
+}
+
+function readInput(){
+  const num = (id)=> parseFloat(field(id).value);
+  return {
+    volume: num('volume'), kb: num('kb'), kg: num('kg'), it: num('it'),
+    phi: num('phi'), rho: num('rho'), free_surface_i: num('fs')
+  };
+}
+
+async function compute(){
+  clearError();
+  const body = readInput();
+  try{
+    const r = await fetch('api/gm', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if(!r.ok || d.error){ showError(d.error || ('HTTP '+r.status)); return; }
+    field('r_bm').textContent = d.bm.toFixed(4);
+    field('r_gm').textContent = d.gm.toFixed(4);
+    field('r_gmf').textContent = d.gm_free.toFixed(4);
+    field('r_gz').textContent = d.gz.toFixed(5);
+    field('r_mom').textContent = d.righting_moment_n.toFixed(1);
+    field('warn').textContent = d.warning || '';
+  }catch(err){ showError(err.message); }
+}
+
+function draw(points){
+  const svg = field('chart');
+  const W=600,H=300, pad=40;
+  const xs = points.map(p=>p.phi_deg), ys = points.map(p=>p.gz);
+  const xmin=Math.min(...xs), xmax=Math.max(...xs);
+  const ymin=Math.min(0,...ys), ymax=Math.max(0,...ys);
+  const sx = (xmax===xmin)?1:(W-2*pad)/(xmax-xmin);
+  const sy = (ymax===ymin)?1:(H-2*pad)/(ymax-ymin);
+  const px = x => pad + (x-xmin)*sx;
+  const py = y => (H-pad) - (y-ymin)*sy;
+  let s = '';
+  // axes
+  s += `<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#3a4d5e"/>`;
+  s += `<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="#3a4d5e"/>`;
+  s += `<text x="${W-pad}" y="${H-pad+18}" fill="#9fb3c8" font-size="11">φ (°)</text>`;
+  s += `<text x="6" y="${pad-6}" fill="#9fb3c8" font-size="11">GZ (m)</text>`;
+  // zero line
+  if(ymin<0 && ymax>0){ s += `<line x1="${pad}" y1="${py(0)}" x2="${W-pad}" y2="${py(0)}" stroke="#56687a" stroke-dasharray="3 3"/>`; }
+  // polyline from backend points
+  const pts = points.map(p=>`${px(p.phi_deg).toFixed(1)},${py(p.gz).toFixed(1)}`).join(' ');
+  s += `<polyline points="${pts}" fill="none" stroke="#4fd1c5" stroke-width="2"/>`;
+  // dots
+  for(const p of points){ s += `<circle cx="${px(p.phi_deg).toFixed(1)}" cy="${py(p.gz).toFixed(1)}" r="2.5" fill="#4fd1c5"/>`; }
+  svg.innerHTML = s;
+}
+
+async function plot(){
+  clearError();
+  const body = readInput();
+  body.from_deg = 0; body.to_deg = 30; body.steps = 60;
+  try{
+    const r = await fetch('api/scan', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if(!r.ok || d.error){ showError(d.error || ('HTTP '+r.status)); return; }
+    draw(d.points);
+  }catch(err){ showError(err.message); }
+}
+
+field('load').onclick = loadExample;
+field('calc').onclick = compute;
+field('plot').onclick = plot;
+field('reset').onclick = ()=>{ ['volume','kb','kg','it','phi','rho','fs'].forEach(id=>field(id).value=''); clearError(); field('chart').innerHTML=''; ['r_bm','r_gm','r_gmf','r_gz','r_mom'].forEach(id=>field(id).textContent='—'); };
+window.addEventListener('load', loadExample);
+</script>
+</body>
+</html>
