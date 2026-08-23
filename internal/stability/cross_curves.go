@@ -31,11 +31,7 @@ func CrossCurveSweep(it, kg float64, displacements []float64, heelDeg float64) [
 // assuming a constant GM (the small-angle arm GZ = GM·sin φ). Convenient for
 // plotting or for a fast approximate curve before a full computation.
 func RightingArmTable(gm float64, heels []float64) []Point {
-	pts := make([]Point, 0, len(heels))
-	for _, h := range heels {
-		pts = append(pts, Point{HeelDeg: h, GZ: gm * math.Sin(h*math.Pi/180)})
-	}
-	return pts
+	return fillArmTable(gm, heels)
 }
 
 // MaxRightingArmAngle returns the heel at which the small-angle GZ reaches its

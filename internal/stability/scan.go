@@ -25,13 +25,12 @@ func ScanGZ(in Input, fromDeg, toDeg float64, steps int) ([]Point, error) {
 
 	gmFree := MetacentricHeightFree(in.KB, MetacentricRadius(in.IT, in.Volume), in.KG, in.FreeSurface, in.Volume)
 
-	pts := make([]Point, 0, steps+1)
+	heels := make([]float64, 0, steps+1)
 	for i := 0; i <= steps; i++ {
 		h := fromDeg + (toDeg-fromDeg)*float64(i)/float64(steps)
-		gz, _ := RightingArm(gmFree, h)
-		pts = append(pts, Point{HeelDeg: h, GZ: gz})
+		heels = append(heels, h)
 	}
-	return pts, nil
+	return fillArmTable(gmFree, heels), nil
 }
 
 // ScanGZDefault samples 0°..maxDeg with a sensible default resolution. It is a
