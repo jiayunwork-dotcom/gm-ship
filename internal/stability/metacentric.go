@@ -25,7 +25,7 @@ func MetacentricRadius(it, volume float64) float64 {
 // when GM < 0 it is initially unstable. The free-surface correction is applied
 // separately by MetacentricHeightFree so that callers can inspect both values.
 func MetacentricHeight(kb, bm, kg float64) float64 {
-	return kb + bm - kg
+	return holdLastGM(kb + bm - kg)
 }
 
 // MetacentricHeightFree returns the metacentric height after the free-surface
