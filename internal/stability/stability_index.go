@@ -1,7 +1,5 @@
 package stability
 
-import "math"
-
 // StabilityIndex bundles a set of derived stability descriptors that classify a
 // loading condition without a full curve. It is the summary a quick check or a
 // dashboard would show.
@@ -18,30 +16,7 @@ type StabilityIndex struct {
 // validation and free-surface correction are honoured per sample.
 func ComputeIndex(in Input) StabilityIndex {
 	idx := StabilityIndex{}
-	maxHeel := 40.0
-	step := 1.0
-	prevGZ := 0.0
-	prevDeg := 0.0
-	for d := step; d <= maxHeel+1e-9; d += step {
-		sample := in
-		sample.HeelDeg = d
-		r, err := Calc(sample)
-		if err != nil {
-			// An invalid intermediate sample should not abort the sweep; skip it.
-			continue
-		}
-		gz := r.GZ
-		if gz > idx.MaxGZ {
-			idx.MaxGZ = gz
-			idx.AngleOfMax = d
-		}
-		if d >= 30-1e-9 && idx.GZAt30 == 0 {
-			idx.GZAt30 = gz
-		}
-		idx.Area0to30 += 0.5 * (gz + prevGZ) * (d - prevDeg) * math.Pi / 180
-		prevGZ = gz
-		prevDeg = d
-	}
+	fillIndexSweep(in, &idx)
 	base, err := Calc(in)
 	if err == nil {
 		idx.GM = base.GMFree
