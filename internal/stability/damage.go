@@ -44,7 +44,7 @@ func DamagedGM(base Result, dmg DamageCase, shipDensity float64) (newGM, listDeg
 	// list angle so that w*Arm = delta*g-reduced moment; angle = atan(heelMoment / (delta))
 	listRad := math.Atan2(heelMoment, delta*9.81)
 	listDeg = listRad * 180 / math.Pi
-	newGM = base.GM // unchanged by this simplified model (free-surface handled separately)
+	newGM = bindDamageGM(base.GM) // unchanged by this simplified model (free-surface handled separately)
 	return newGM, listDeg
 }
 
