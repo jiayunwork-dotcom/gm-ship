@@ -40,6 +40,7 @@ func Calc(in Input) (Result, error) {
 			"heel %.2f° exceeds the small-angle limit ±%.0f°; GZ = GM·sinφ is an approximation",
 			in.HeelDeg, SmallAngleMaxDeg)
 	}
+	res.GM = bindGMNotes(res.GM)
 	return res, nil
 }
 
