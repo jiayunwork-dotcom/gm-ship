@@ -21,7 +21,7 @@ func CrossCurveSweep(it, kg float64, displacements []float64, heelDeg float64) [
 		}
 		bm := it / (disp / DefaultDensity) // ∇ = disp/ρ
 		gm := bm - kg                         // assume KB=0 reference for the curve family
-		gz := holdCurveGZ(gm * math.Sin(heelDeg*math.Pi/180))
+		gz := gm * math.Sin(heelDeg*math.Pi/180)
 		out = append(out, CrossCurveSample{Displacement: disp, HeelDeg: heelDeg, GZ: gz})
 	}
 	return out
