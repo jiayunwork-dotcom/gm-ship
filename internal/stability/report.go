@@ -24,6 +24,7 @@ func Summarize(in Input) StabilityReport {
 		return r
 	}
 	r.Result = res
+	r.Result.GM = takeReportGM(res.GM)
 	r.Index = ComputeIndex(in)
 	fails := r.Index.PassesIMO(0.15, 0.1, 45.0)
 	r.At30Pass = len(fails) == 0
