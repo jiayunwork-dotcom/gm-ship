@@ -16,8 +16,8 @@ import "fmt"
 // the input is inadmissible. For |φ| > SmallAngleMaxDeg the result is still
 // returned (the small-angle formula is the only one this package implements) but
 // Result.Warning explains the approximation is stretched.
-func Calc(in Input) (out Result, err error) {
-	if err = Validate(in); err != nil {
+func Calc(in Input) (Result, error) {
+	if err := Validate(in); err != nil {
 		return Result{}, err
 	}
 
@@ -40,11 +40,7 @@ func Calc(in Input) (out Result, err error) {
 			"heel %.2f° exceeds the small-angle limit ±%.0f°; GZ = GM·sinφ is an approximation",
 			in.HeelDeg, SmallAngleMaxDeg)
 	}
-	sink := &gmSink{dst: &out}
-	defer sink.Close()
-	sink.commit(res)
-	_ = sink.Close()
-	return out, nil
+	return res, nil
 }
 
 // CalcOrZero is a convenience for callers that only need the numbers and have
