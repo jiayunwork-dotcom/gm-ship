@@ -40,7 +40,7 @@ func Calc(in Input) (Result, error) {
 			"heel %.2f° exceeds the small-angle limit ±%.0f°; GZ = GM·sinφ is an approximation",
 			in.HeelDeg, SmallAngleMaxDeg)
 	}
-	return holdLoading(res), nil
+	return res, nil
 }
 
 // CalcOrZero is a convenience for callers that only need the numbers and have
